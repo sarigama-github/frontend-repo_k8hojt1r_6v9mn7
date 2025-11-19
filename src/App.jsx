@@ -1,68 +1,111 @@
-function App() {
+import React, { useEffect, useState } from 'react'
+import { Routes, Route, useLocation, Link } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import Navbar from './components/Navbar'
+import Hero from './components/Hero'
+import Footer from './components/Footer'
+import Loader from './components/Loader'
+import { ThemeProvider } from './components/ThemeContext'
+
+function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+    <main>
+      <Hero />
+      <section id="about" className="max-w-3xl mx-auto px-6 py-20">
+        <h2 className="text-2xl font-semibold text-[#1B1A55] dark:text-white">Why Panny?</h2>
+        <p className="mt-4 text-[#1B1A55]/70 dark:text-white/70 leading-relaxed">
+          A gentle companion for your inner weather. Panny blends a calm visual aura, empathetic prompts, and a privacy-first design to make self-support feel natural.
+        </p>
+      </section>
+      <Footer />
+    </main>
+  )
+}
 
-      <div className="relative min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full">
-          {/* Header with Flames icon */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center mb-6">
-              <img
-                src="/flame-icon.svg"
-                alt="Flames"
-                className="w-24 h-24 drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
+function ChatPage() {
+  const [conversationId, setConversationId] = useState(null)
+  const [input, setInput] = useState('')
+  const [messages, setMessages] = useState([])
+  const [loading, setLoading] = useState(false)
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+  const send = async () => {
+    const text = input.trim()
+    if (!text) return
+    setLoading(true)
+
+    // optimistic UI
+    const tempId = Date.now().toString()
+    setMessages(m => [...m, { id: tempId, role: 'user', content: text }])
+    setInput('')
+
+    try {
+      const res = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: conversationId, message: text })
+      })
+      if (!res.ok) throw new Error('Failed to send')
+      const data = await res.json()
+      setConversationId(data.conversation_id)
+      const newMsgs = data.messages?.map((m, idx) => ({ id: `${data.conversation_id}-${idx}`, ...m })) || []
+      setMessages(newMsgs)
+    } catch (e) {
+      setMessages(m => [...m, { id: `${tempId}-err`, role: 'assistant', content: 'Sorry, I had trouble responding. Try again.' }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!conversationId) return
+    const load = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/api/conversations/${conversationId}/messages`)
+        if (res.ok) {
+          const arr = await res.json()
+          setMessages(arr.map((m, idx) => ({ id: `${conversationId}-${idx}`, ...m })))
+        }
+      } catch {}
+    }
+    load()
+  }, [conversationId])
+
+  return (
+    <div className="min-h-screen pt-20 bg-[#F6F1F1] dark:bg-[#070F2B]">
+      <div className="max-w-3xl mx-auto px-4">
+        <div className="py-6">
+          <h1 className="text-2xl font-semibold text-[#1B1A55] dark:text-white">Talk to Panny</h1>
+          <p className="mt-1 text-[#1B1A55]/70 dark:text-white/70">A calm, private space just for you.</p>
+        </div>
+        <div className="rounded-2xl border border-[#AFD3E2]/50 dark:border-white/10 bg-white/70 dark:bg-white/5 backdrop-blur">
+          <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+            {messages.length === 0 && (
+              <div className="text-sm text-[#1B1A55]/60 dark:text-white/60">Say anything — I'm here with you.</div>
+            )}
+            {messages.map(m => (
+              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`${m.role === 'user' ? 'bg-[#19A7CE] text-white' : 'bg-[#AFD3E2]/40 text-[#1B1A55] dark:bg-white/10 dark:text-white'} rounded-2xl px-4 py-2 max-w-[80%]`}>{m.content}</div>
+              </div>
+            ))}
+          </div>
+          <div className="p-4 border-t border-[#AFD3E2]/50 dark:border-white/10">
+            <div className="flex gap-2">
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') send() }}
+                placeholder="Type a message"
+                className="flex-1 bg-white dark:bg-white/5 border border-[#AFD3E2]/60 dark:border-white/10 rounded-xl px-3 py-3 text-[#1B1A55] dark:text-white outline-none"
               />
+              <button
+                onClick={send}
+                className="rounded-xl px-5 py-3 bg-[#19A7CE] hover:bg-[#1596b8] text-white disabled:opacity-60"
+                disabled={loading}
+              >
+                Send
+              </button>
             </div>
-
-            <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">
-              Flames Blue
-            </h1>
-
-            <p className="text-xl text-blue-200 mb-6">
-              Build applications through conversation
-            </p>
-          </div>
-
-          {/* Instructions */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 shadow-xl mb-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                1
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Describe your idea</h3>
-                <p className="text-blue-200/80 text-sm">Use the chat panel on the left to tell the AI what you want to build</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Watch it build</h3>
-                <p className="text-blue-200/80 text-sm">Your app will appear in this preview as the AI generates the code</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                3
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Refine and iterate</h3>
-                <p className="text-blue-200/80 text-sm">Continue the conversation to add features and make changes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center">
-            <p className="text-sm text-blue-300/60">
-              No coding required • Just describe what you want
-            </p>
           </div>
         </div>
       </div>
@@ -70,4 +113,44 @@ function App() {
   )
 }
 
-export default App
+function PageTransitions() {
+  const location = useLocation()
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    const t = setTimeout(() => setLoading(false), 600)
+    return () => clearTimeout(t)
+  }, [location.pathname])
+
+  return (
+    <>
+      <Loader show={loading} />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <Routes location={location}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/chat" element={<ChatPage />} />
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <div className="min-h-screen bg-[#F6F1F1] dark:bg-[#070F2B]">
+        <Navbar />
+        <PageTransitions />
+      </div>
+    </ThemeProvider>
+  )
+}
